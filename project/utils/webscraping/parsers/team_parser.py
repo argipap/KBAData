@@ -9,7 +9,7 @@ class TeamParser:
     def get_roster(self):
         return [
             team_row
-            for team_row in self.parent.select(TeamLocator.PLAYERS)
+            for team_row in self.parent.find("div", {"id": "div_roster"}).select(TeamLocator.PLAYERS)
         ]
 
     @property

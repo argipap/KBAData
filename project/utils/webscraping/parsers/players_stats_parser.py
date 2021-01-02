@@ -22,3 +22,10 @@ class PlayerParser:
         for stat_value in stat_values:
             player_statistics.append(dict(zip(stat_names, stat_value)))
         return player_statistics
+
+    @property
+    def get_statistics_header(self) -> List:
+        header = [
+            stat.text for stat in self.parent.select(PlayerStatsLocator.STATISTIC_NAMES)
+        ]
+        return header
