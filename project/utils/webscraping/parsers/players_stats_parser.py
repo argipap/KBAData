@@ -10,10 +10,10 @@ class PlayerParser:
     def player_stats(self) -> List:
         player_statistics = []
         stat_names = [
-            stat.text for stat in self.parent.select(PlayerStatsLocator.STATISTIC_NAMES)
+            stat.text for stat in self.parent.select(PlayerStatsLocator.STATISTIC_NAMES)[:30]
         ]
         stat_values = []
-        for season_stat in self.parent.select(PlayerStatsLocator.STATISTIC_PER_SEASON):
+        for season_stat in self.parent.select(PlayerStatsLocator.STATISTIC_PER_SEASON)[:30]:
             try:
                 season_stat_values = [stat_value.text for stat_value in season_stat]
             except AttributeError:
