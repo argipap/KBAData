@@ -1,4 +1,4 @@
-from project.models.statistics_model import StatisticsModel
+from statistics_model import StatisticsModel
 
 
 class PlayerModel:

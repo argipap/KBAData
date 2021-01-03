@@ -2,8 +2,7 @@ import requests
 import asyncio
 import aiohttp
 import time
-# import sys
-# sys.path.append("/home/argi/PycharmProjects/KBAData")
+from typing import Dict
 
 from project.utils.webscraping.pages.box_score_page import BoxScorePage
 from project.utils.webscraping.pages.team_page import TeamPage
@@ -11,6 +10,7 @@ from project.utils.webscraping.parsers.box_score_parser import BoxScoreParser
 from project.utils.webscraping.parsers.team_parser import TeamParser
 from project.utils.webscraping.pages.player_stats_page import PlayerStatsPage
 from project.utils.csv_module import CsvWriter
+from project.utils.config import stat_modifier, EXPORT_DATA_DIR
 
 INITIAL_URL = "https://www.basketball-reference.com"
 TEAMS = {}
@@ -19,7 +19,7 @@ DATA = []
 
 async def download_team_site(session, team_name, url):
     async with session.get(url) as response:
-        print("Read {0} from {1}".format(response.content_length, url))
+        print(f"Downloading {team_name} roster from: {url}")
         TEAMS[team_name] = TeamPage(await response.text()).roster
 
 
@@ -38,7 +38,7 @@ async def download_player_site(session, team, player_name, url, player_statistic
         player_statistics[player_name] = PlayerStatsPage(await response.text()).statistics
         for player, stats in player_statistics.items():
             for season_stat in stats:
-                row = [player, team] + list(stat for stat in season_stat.values())
+                row = [player, team] + list(stat for stat in season_stat.values()) + [stats_to_fan_points(season_stat)]
                 DATA.append(row)
 
 
@@ -92,6 +92,26 @@ def get_player_stats(teams_data):
     asyncio.get_event_loop().run_until_complete(download_all_player_sites(teams_data))
 
 
+def get_stat_modifier_by_name(stat_name):
+    return stat_modifier[stat_name]
+
+
+def stats_to_fan_points(statistics: Dict) -> str:
+    fan_points = 0
+    for stat_name, stat_value in statistics.items():
+        if stat_name in stat_modifier:
+            fan_points = fan_points + (float(stat_value) * float(get_stat_modifier_by_name(stat_name)))
+    return str(round(float(fan_points), 2))
+
+
+def get_header(teams_data):
+    header = ["Name", "Team"]
+    stats_header = download_player_stats_for_header(teams_data)
+    header = header + stats_header
+    header.append("FanPoints")
+    return header
+
+
 def main():
     start_time = time.time()
     box_scores_page = get_box_scores()
@@ -101,14 +121,13 @@ def main():
     get_roster(teams)
     teams_data = get_teams_data()
     get_player_stats(teams_data)
-    header = download_player_stats_for_header(teams_data)
-    print(header)
+    header = get_header(teams_data)
     DATA.insert(0, header)
-    writer = CsvWriter("player_stats_avg.csv")
+    writer = CsvWriter(f"{EXPORT_DATA_DIR}/player_stats_avg.csv")
     writer.write(DATA)
 
     duration = time.time() - start_time
-    print(f"Downloaded from {len(list(TEAMS.items()))} teams, {len(DATA)} player stats in {duration} seconds")
+    print(f"Downloaded from {len(list(TEAMS.items()))} teams, {len(DATA)-1} player stats in {duration} seconds")
 
 
 if __name__ == '__main__':
