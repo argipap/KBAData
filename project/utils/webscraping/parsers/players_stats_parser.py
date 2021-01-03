@@ -18,7 +18,8 @@ class PlayerParser:
                 season_stat_values = [stat_value.text for stat_value in season_stat]
             except AttributeError:
                 season_stat_values = []
-            stat_values.append(season_stat_values) and len(season_stat_values) > 0
+            if len(season_stat_values) > 0:
+                stat_values.append(season_stat_values) and len(season_stat_values) > 0
         for stat_value in stat_values:
             player_statistics.append(dict(zip(stat_names, stat_value)))
         return player_statistics

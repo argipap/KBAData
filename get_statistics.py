@@ -2,6 +2,7 @@ import requests
 import asyncio
 import aiohttp
 import time
+import argparse
 from typing import Dict
 
 from project.utils.webscraping.pages.box_score_page import BoxScorePage
@@ -32,24 +33,24 @@ async def download_all_team_sites(sites):
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
-async def download_player_site(session, team, player_name, url, player_statistics):
+async def download_player_site(session, team, player_name, url, player_statistics, category="totals"):
     async with session.get(url) as response:
-        print(f"Downloading stats for player: {player_name} from: {url}")
-        player_statistics[player_name] = PlayerStatsPage(await response.text()).statistics
+        print(f"Downloading {category} stats for player: {player_name} from: {url}")
+        player_statistics[player_name] = PlayerStatsPage(await response.text()).statistics(category)
         for player, stats in player_statistics.items():
             for season_stat in stats:
                 row = [player, team] + list(stat for stat in season_stat.values()) + [stats_to_fan_points(season_stat)]
                 DATA.append(row)
 
 
-async def download_all_player_sites(teams_data):
+async def download_all_player_sites(teams_data, category="totals"):
     async with aiohttp.ClientSession() as session:
         tasks = []
         for team, player_sites in teams_data.items():
             for player_name, url in player_sites.items():
                 player_statistics = {}
                 task = asyncio.ensure_future(
-                    download_player_site(session, team, player_name, url, player_statistics))
+                    download_player_site(session, team, player_name, url, player_statistics, category))
                 tasks.append(task)
         await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -88,8 +89,8 @@ def get_teams_data():
     return teams_data
 
 
-def get_player_stats(teams_data):
-    asyncio.get_event_loop().run_until_complete(download_all_player_sites(teams_data))
+def get_player_stats(teams_data, category="totals"):
+    asyncio.get_event_loop().run_until_complete(download_all_player_sites(teams_data, category))
 
 
 def get_stat_modifier_by_name(stat_name):
@@ -114,16 +115,20 @@ def get_header(teams_data):
 
 def main():
     start_time = time.time()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--stats_category", type=str, help="Specify totals or avg stats", default="totals",
+                        choices=["totals", "per_game"])
+    args = parser.parse_args()
     box_scores_page = get_box_scores()
     teams_html = BoxScorePage(box_scores_page).teams
     teams = BoxScoreParser(teams_html).get_teams
 
     get_roster(teams)
     teams_data = get_teams_data()
-    get_player_stats(teams_data)
+    get_player_stats(teams_data, category=args.stats_category)
     header = get_header(teams_data)
     DATA.insert(0, header)
-    writer = CsvWriter(f"{EXPORT_DATA_DIR}/player_stats_avg.csv")
+    writer = CsvWriter(f"{EXPORT_DATA_DIR}/player_stats_{args.stats_category}.csv")
     writer.write(DATA)
 
     duration = time.time() - start_time
